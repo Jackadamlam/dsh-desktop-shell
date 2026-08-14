@@ -1,0 +1,19 @@
+# ---------- 依赖 ----------
+node_modules/
+
+# ---------- 构建产物（统一输出到 dist/，不纳入版本管理） ----------
+dist/
+dist-*/
+release/
+out/
+
+# ---------- 日志与调试文件 ----------
+*.log
+builder-debug.yml
+builder-effective-config.yaml
+
+# ---------- 系统与编辑器 ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
