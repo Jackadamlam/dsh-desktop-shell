@@ -5,13 +5,14 @@
 //       捕获 stdout 中的 http://127.0.0.1:<port> -> 加载该 URL。
 // 增强：
 //   - 任务栏托盘（鲸鱼图标），tooltip 实时显示 DSH 服务状态
-//   - 托盘菜单：显示/隐藏窗口、开机自启、退出
+//   - 托盘菜单：显示/隐藏窗口、重启服务、开机自启、退出
 //   - 关闭窗口 = 最小化到托盘（服务继续跑）；仅托盘"退出"才彻底结束
 //   - 开机自启时直接进托盘，不弹窗口
+//   - 记住窗口位置与大小；加载页显示版本号
 // 退出时用 taskkill /T /F 杀掉整棵进程树，确保 pnpm/node 子进程不残留。
 // ============================================================================
 
-const { app, BrowserWindow, shell, Tray, Menu, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Tray, Menu, nativeImage, ipcMain, screen } = require('electron');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -28,9 +29,14 @@ const DSH_START_COMMAND = 'pnpm dsh web';
 // 等待服务就绪的超时时间（毫秒），超时后加载页/托盘显示错误提示
 const STARTUP_TIMEOUT_MS = 120000;
 
-// 窗口尺寸
+// 窗口默认尺寸（用户调整后会被记住，下次启动沿用）
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 860;
+const WINDOW_MIN_WIDTH = 800;
+const WINDOW_MIN_HEIGHT = 600;
+
+// 窗口状态存储文件（userData 下，不污染项目）
+const WINDOW_STATE_FILE = 'window-state.json';
 // ============================================================================
 
 let mainWindow = null;    // 主窗口
@@ -39,6 +45,7 @@ let dshProcess = null;    // dsh 子进程
 let urlLoaded = false;    // 是否已加载到服务 URL（只加载一次）
 let startupTimer = null;  // 启动超时定时器
 let appIsQuitting = false; // 是否正在真正退出（托盘"退出"触发）
+let windowSaveTimer = null; // 窗口状态防抖保存定时器
 
 // ---------- 托盘状态机 ----------
 let trayState = 'starting'; // starting | running | error | stopped
@@ -83,6 +90,15 @@ function updateTray() {
       { label: statusLabel, enabled: false },
       { type: 'separator' },
       { label: '显示 / 隐藏窗口', click: () => toggleMainWindow() },
+      {
+        label: '重启服务',
+        click: () => {
+          setStatus('正在重启服务…');
+          stopDsh();
+          urlLoaded = false;
+          startDsh();
+        },
+      },
       {
         label: '开机自启',
         type: 'checkbox',
@@ -198,7 +214,7 @@ function createLoadingHtml() {
     <div class="status" id="status">正在初始化本地服务，请稍候…</div>
     <button class="btn" id="retry">重 试</button>
   </div>
-  <div class="foot">DSH Desktop Shell</div>
+  <div class="foot">DSH Desktop Shell v${app.getVersion()}</div>
   <script>
     window.dshShell.onStatus(function (s) {
       var el = document.getElementById('status');
@@ -223,11 +239,54 @@ function createLoadingHtml() {
 </html>`;
 }
 
+// ---------- 窗口状态记忆（位置/大小持久化） ----------
+function windowStateFile() {
+  return path.join(app.getPath('userData'), WINDOW_STATE_FILE);
+}
+
+function loadWindowState() {
+  try {
+    const s = JSON.parse(fs.readFileSync(windowStateFile(), 'utf8'));
+    if (s && typeof s.x === 'number' && typeof s.y === 'number' &&
+        s.width >= WINDOW_MIN_WIDTH && s.height >= WINDOW_MIN_HEIGHT) {
+      return s;
+    }
+  } catch (e) { /* 无历史或文件损坏，用默认 */ }
+  return null;
+}
+
+function isVisibleOnSomeDisplay(bounds) {
+  return screen.getAllDisplays().some((d) => {
+    const a = d.workArea;
+    return bounds.x < a.x + a.width && bounds.x + bounds.width > a.x &&
+           bounds.y < a.y + a.height && bounds.y + bounds.height > a.y;
+  });
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    fs.writeFileSync(windowStateFile(), JSON.stringify(mainWindow.getBounds()));
+  } catch (e) { /* 忽略写失败 */ }
+}
+
+function scheduleWindowStateSave() {
+  clearTimeout(windowSaveTimer);
+  windowSaveTimer = setTimeout(saveWindowState, 500);
+}
+
 // ---------- 创建主窗口 ----------
 function createWindow() {
+  const saved = loadWindowState();
+  const useSaved = saved && isVisibleOnSomeDisplay(saved);
+
   mainWindow = new BrowserWindow({
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT,
+    x: useSaved ? saved.x : undefined,
+    y: useSaved ? saved.y : undefined,
+    width: useSaved ? saved.width : WINDOW_WIDTH,
+    height: useSaved ? saved.height : WINDOW_HEIGHT,
+    minWidth: WINDOW_MIN_WIDTH,
+    minHeight: WINDOW_MIN_HEIGHT,
     icon: path.join(__dirname, 'icon.ico'),
     title: 'DeepSeek Harness',
     autoHideMenuBar: true,
@@ -251,6 +310,11 @@ function createWindow() {
   mainWindow.loadURL(
     'data:text/html;charset=utf-8,' + encodeURIComponent(createLoadingHtml())
   );
+
+  // 记住窗口位置与大小（防抖保存，重启后沿用）
+  mainWindow.on('resize', scheduleWindowStateSave);
+  mainWindow.on('move', scheduleWindowStateSave);
+  mainWindow.on('close', () => saveWindowState());
 
   // 关闭窗口 = 最小化到托盘（服务继续跑），只有托盘"退出"才真正结束
   mainWindow.on('close', (e) => {
