@@ -12,7 +12,7 @@
 // 退出时用 taskkill /T /F 杀掉整棵进程树，确保 pnpm/node 子进程不残留。
 // ============================================================================
 
-const { app, BrowserWindow, shell, Tray, Menu, nativeImage, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, shell, Tray, Menu, nativeImage, nativeTheme, ipcMain, screen } = require('electron');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -35,9 +35,17 @@ const WINDOW_HEIGHT = 860;
 const WINDOW_MIN_WIDTH = 800;
 const WINDOW_MIN_HEIGHT = 600;
 
+// 自定义标题栏：true = 自绘深色标题栏（鲸鱼 logo + 状态灯 + 自绘窗口按钮）
+// 若与官方页面布局冲突，改为 false 即回退系统标题栏（仍保持深色主题）
+const CUSTOM_TITLE_BAR = true;
+const TITLE_BAR_HEIGHT = 36;
+
 // 窗口状态存储文件（userData 下，不污染项目）
 const WINDOW_STATE_FILE = 'window-state.json';
 // ============================================================================
+
+// 全应用深色主题（窗口标题栏/系统对话框与深色 UI 保持一致）
+nativeTheme.themeSource = 'dark';
 
 let mainWindow = null;    // 主窗口
 let tray = null;          // 托盘
@@ -176,6 +184,7 @@ function createLoadingHtml() {
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden;
+         padding-top:${TITLE_BAR_HEIGHT}px;
          font-family:"Segoe UI",system-ui,-apple-system,sans-serif; color:#e6edf7;
          background:radial-gradient(1100px 560px at 50% -8%, #1c2b55 0%, #101a36 48%, #0a0f1e 100%); }
   .card { text-align:center; animation:fadeUp .5s ease; }
@@ -275,6 +284,89 @@ function scheduleWindowStateSave() {
   windowSaveTimer = setTimeout(saveWindowState, 500);
 }
 
+// ---------- 自定义标题栏（shadow DOM 注入，样式隔离） ----------
+function injectTitleBar(wc) {
+  if (!CUSTOM_TITLE_BAR) return;
+  const h = TITLE_BAR_HEIGHT;
+  const titleBarHtml = `
+<div class="dsh-tb">
+  <div class="dsh-brand">
+    <img src="${WHALE_LOGO}" alt="">
+    <span class="dsh-name">DeepSeek Harness</span>
+    <span class="dsh-dot" id="dsh-dot"></span>
+  </div>
+  <div class="dsh-drag"></div>
+  <div class="dsh-btn" id="dsh-btn-min" title="最小化">
+    <svg viewBox="0 0 10 10"><path d="M0.5 5h9" stroke="currentColor" stroke-width="1.2"/></svg>
+  </div>
+  <div class="dsh-btn" id="dsh-btn-max" title="最大化 / 还原">
+    <svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+  </div>
+  <div class="dsh-btn dsh-close" id="dsh-btn-close" title="关闭">
+    <svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+  </div>
+</div>
+<style>
+  .dsh-tb { position: fixed; top: 0; left: 0; right: 0; height: ${h}px; display: flex; align-items: center;
+            background: linear-gradient(90deg, #0d1428 0%, #111c3c 55%, #0d1428 100%);
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            color: #c8d4ea; font-family: "Segoe UI", system-ui, sans-serif; font-size: 12.5px;
+            user-select: none; z-index: 2147483000; }
+  .dsh-brand { display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 100%;
+               -webkit-app-region: drag; }
+  .dsh-brand img { width: 16px; height: 16px; }
+  .dsh-name { font-weight: 600; letter-spacing: .4px; color: #e6edf7; }
+  .dsh-dot { width: 7px; height: 7px; border-radius: 50%; background: #9aa3b2; margin-left: 2px; }
+  .dsh-dot.running { background: #4f8cff; box-shadow: 0 0 7px rgba(79,140,255,.9); }
+  .dsh-dot.starting { background: #ffffff; }
+  .dsh-dot.error { background: #ff6b6b; box-shadow: 0 0 7px rgba(255,107,107,.9); }
+  .dsh-drag { flex: 1; height: 100%; -webkit-app-region: drag; }
+  .dsh-btn { width: 46px; height: 100%; display: flex; align-items: center; justify-content: center;
+             -webkit-app-region: no-drag; cursor: pointer; border: none; background: transparent;
+             color: #a9b7d0; transition: background .15s, color .15s; }
+  .dsh-btn:hover { background: rgba(255,255,255,.09); color: #ffffff; }
+  .dsh-close:hover { background: #e81123; color: #ffffff; }
+  .dsh-btn svg { width: 11px; height: 11px; }
+</style>`;
+
+  const script = `
+    (function () {
+      if (window.__dshTitleBarInjected) return;
+      window.__dshTitleBarInjected = true;
+      var host = document.createElement('div');
+      host.id = 'dsh-title-bar-host';
+      var root = host.attachShadow({ mode: 'closed' });
+      root.innerHTML = ${JSON.stringify(titleBarHtml)};
+      document.documentElement.appendChild(host);
+
+      // 页面内容让位（避免被标题栏遮挡）
+      document.documentElement.style.paddingTop = '${h}px';
+      var app = document.getElementById('root');
+      if (app && app.style) app.style.height = 'calc(100vh - ${h}px)';
+
+      // 窗口控制按钮
+      root.getElementById('dsh-btn-min').addEventListener('click', function () {
+        window.dshShell.windowAction('minimize');
+      });
+      root.getElementById('dsh-btn-max').addEventListener('click', function () {
+        window.dshShell.windowAction('toggle-maximize');
+      });
+      root.getElementById('dsh-btn-close').addEventListener('click', function () {
+        window.dshShell.windowAction('close');
+      });
+
+      // 状态灯：与服务状态联动（与托盘图标同色）
+      var dot = root.getElementById('dsh-dot');
+      window.dshShell.onStatus(function (s) {
+        dot.className = 'dsh-dot ' + (s.type === 'error' ? 'error' : 'running');
+      });
+      dot.className = 'dsh-dot running';
+    })();
+  `;
+
+  wc.executeJavaScript(script).catch(() => { /* 页面尚未就绪则忽略，did-finish-load 后重试 */ });
+}
+
 // ---------- 创建主窗口 ----------
 function createWindow() {
   const saved = loadWindowState();
@@ -287,6 +379,7 @@ function createWindow() {
     height: useSaved ? saved.height : WINDOW_HEIGHT,
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
+    frame: !CUSTOM_TITLE_BAR, // 自定义标题栏时去掉系统边框
     icon: path.join(__dirname, 'icon.ico'),
     title: 'DeepSeek Harness',
     autoHideMenuBar: true,
@@ -310,6 +403,11 @@ function createWindow() {
   mainWindow.loadURL(
     'data:text/html;charset=utf-8,' + encodeURIComponent(createLoadingHtml())
   );
+
+  // 每次页面加载完成（加载页 / Web UI）注入自定义标题栏
+  mainWindow.webContents.on('did-finish-load', () => {
+    injectTitleBar(mainWindow.webContents);
+  });
 
   // 记住窗口位置与大小（防抖保存，重启后沿用）
   mainWindow.on('resize', scheduleWindowStateSave);
@@ -431,6 +529,19 @@ ipcMain.on('dsh:retry', () => {
   stopDsh();          // 杀旧进程（含 3080 兜底清理）
   urlLoaded = false;  // 重置就绪标记
   startDsh();         // 重新拉起服务
+});
+
+// ---------- 自定义标题栏窗口控制 ----------
+ipcMain.on('dsh:window-action', (_event, action) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (action === 'minimize') {
+    mainWindow.minimize();
+  } else if (action === 'toggle-maximize') {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  } else if (action === 'close') {
+    mainWindow.close(); // 走 close 事件：最小化到托盘
+  }
 });
 
 // ---------- 停止 DSH 子进程（幂等 + 兜底清理，确保端口释放） ----------
