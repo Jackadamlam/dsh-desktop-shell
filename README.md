@@ -63,22 +63,34 @@ npm start
 
 > ⚠️ 若 3080 端口已被占用（例如另一个 DSH Web UI 正在运行），加载页会提示"端口被占用"，请先关闭其他实例再运行。
 
-## 打包（NSIS 安装包）
+## 打包（版本化产物，彻底解决互锁）
+
+产物按版本号分目录存放：`dist/v0.1.0/`、`dist/v0.1.1/`... —— **打包永不触碰运行中的文件**，应用开着也能随时打包，不需要关闭、不需要临时目录。
 
 ```powershell
-npm run dist
+npm run dist          # 打包当前版本到 dist/v<版本号>/
 ```
 
-> ⚠️ **若应用正在运行**：默认输出目录 `dist/` 会被运行中的 exe 锁定（EBUSY 报错）。
-> 无需关闭应用，改用独立输出目录即可：
-> ```powershell
-> npx electron-builder --win --config.directories.output=dist-v2
-> ```
-> 打包完成后关掉旧版，运行 `dist-v2\win-unpacked\DSH Desktop Shell.exe` 即可切换。
+**改版流程（每次魔改后推荐）：**
 
-产物位于 `dist/`（或指定的输出目录）目录：
+```powershell
+npm run bump:patch    # 版本号 +0.0.1（自动 git commit + tag）
+npm run dist          # 打包到新版本目录
+```
 
-- `DSH Desktop Shell Setup 0.1.0.exe` —— NSIS 安装程序（双击安装，可选安装目录、创建桌面快捷方式）
+**启动最新版本：**
+
+```powershell
+.\run-latest.ps1      # 自动找到 dist 下最新版本并启动
+```
+
+或者直接运行 `dist\v<最新>\win-unpacked\DSH Desktop Shell.exe`。
+
+> 旧版本目录可保留（随时回退），磁盘紧张时手动删除即可（git 历史里的源码不受影响）。
+
+产物位于 `dist\v<版本号>\` 目录：
+
+- `DSH Desktop Shell Setup <版本号>.exe` —— NSIS 安装程序（双击安装，可选安装目录、创建桌面快捷方式）
 - `win-unpacked/` —— 免安装的解压即用目录
 
 仅想生成免安装目录（更快，用于自测）：
