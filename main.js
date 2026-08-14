@@ -11,8 +11,9 @@
 // 退出时用 taskkill /T /F 杀掉整棵进程树，确保 pnpm/node 子进程不残留。
 // ============================================================================
 
-const { app, BrowserWindow, shell, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, shell, Tray, Menu, nativeImage, ipcMain } = require('electron');
 const { spawn, execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 // ============================================================================
@@ -141,33 +142,81 @@ function toggleMainWindow() {
 }
 
 // ---------- 加载页（内嵌 HTML，无需额外文件） ----------
+// 品牌蓝鲸鱼 logo：运行时从 assets/whale.svg 读取（可维护、可换色）
+const WHALE_LOGO = (() => {
+  try {
+    const svg = fs.readFileSync(path.join(__dirname, 'assets/whale.svg'), 'utf8');
+    return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+  } catch (e) {
+    return '';
+  }
+})();
+
 function createLoadingHtml() {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <style>
-  body { margin:0; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-         background:#0f1420; color:#e6edf7; font-family:"Segoe UI",system-ui,sans-serif; }
-  .logo { font-size:56px; margin-bottom:16px; }
-  h1 { font-size:20px; font-weight:600; margin:0 0 10px; }
-  .spinner { width:34px; height:34px; border:3px solid #2a3550; border-top-color:#4f8cff; border-radius:50%;
-             animation:spin 1s linear infinite; margin-bottom:20px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .status { font-size:14px; color:#8fa3c0; white-space:pre-wrap; text-align:center; max-width:660px; line-height:1.7; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden;
+         font-family:"Segoe UI",system-ui,-apple-system,sans-serif; color:#e6edf7;
+         background:radial-gradient(1100px 560px at 50% -8%, #1c2b55 0%, #101a36 48%, #0a0f1e 100%); }
+  .card { text-align:center; animation:fadeUp .5s ease; }
+  .whale { width:112px; height:112px; margin:0 auto 26px; display:block;
+           filter:drop-shadow(0 10px 28px rgba(79,140,255,.38)); animation:breathe 3.2s ease-in-out infinite; }
+  h1 { font-size:23px; font-weight:600; letter-spacing:.5px; }
+  .sub { font-size:12.5px; color:#8fa3c0; margin-top:7px; letter-spacing:2.5px; text-transform:uppercase; }
+  .spinner { width:34px; height:34px; border:3px solid rgba(255,255,255,.12); border-top-color:#4f8cff;
+             border-radius:50%; margin:28px auto 0; animation:spin 1s linear infinite; }
+  .bar { width:300px; height:4px; border-radius:2px; background:rgba(255,255,255,.08);
+         margin:26px auto 0; overflow:hidden; }
+  .bar i { display:block; height:100%; width:38%; border-radius:2px;
+           background:linear-gradient(90deg,#4f8cff,#7aa2ff);
+           animation:slide 1.4s ease-in-out infinite; }
+  .status { margin-top:18px; font-size:12.5px; color:#8fa3c0; white-space:pre-wrap; line-height:1.8; max-width:580px; }
   .status.error { color:#ff6b6b; }
+  .btn { display:none; margin-top:22px; padding:10px 30px; border:none; border-radius:8px; cursor:pointer;
+         background:#4f8cff; color:#fff; font-size:14px; font-weight:600; letter-spacing:1px;
+         transition:background .2s, transform .1s; }
+  .btn:hover { background:#6aa2ff; }
+  .btn:active { transform:scale(.96); }
+  .foot { position:fixed; bottom:18px; width:100%; text-align:center; font-size:11px; color:#5b6b8c; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes slide { 0%{transform:translateX(-110%)} 100%{transform:translateX(370%)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
 </style>
 </head>
 <body>
-  <div class="logo">🐋</div>
-  <h1>正在启动 DeepSeek Harness...</h1>
-  <div class="spinner"></div>
-  <div class="status" id="status">正在初始化本地服务，请稍候…</div>
+  <div class="card">
+    <img class="whale" src="${WHALE_LOGO}" alt="DeepSeek Harness">
+    <h1>DeepSeek Harness</h1>
+    <div class="sub">Local · Desktop</div>
+    <div class="spinner" id="spinner"></div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="status" id="status">正在初始化本地服务，请稍候…</div>
+    <button class="btn" id="retry">重 试</button>
+  </div>
+  <div class="foot">DSH Desktop Shell</div>
   <script>
     window.dshShell.onStatus(function (s) {
       var el = document.getElementById('status');
       el.textContent = s.text;
-      el.className = s.type === 'error' ? 'status error' : 'status';
+      if (s.type === 'error') {
+        el.className = 'status error';
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('bar').style.display = 'none';
+        document.getElementById('retry').style.display = 'inline-block';
+      } else {
+        el.className = 'status';
+        document.getElementById('spinner').style.display = '';
+        document.getElementById('bar').style.display = '';
+        document.getElementById('retry').style.display = 'none';
+      }
+    });
+    document.getElementById('retry').addEventListener('click', function () {
+      window.dshShell.requestRetry();
     });
   </script>
 </body>
@@ -180,7 +229,7 @@ function createWindow() {
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
     icon: path.join(__dirname, 'icon.ico'),
-    title: 'DSH Desktop Shell',
+    title: 'DeepSeek Harness',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -312,6 +361,13 @@ function startDsh() {
     }
   }, STARTUP_TIMEOUT_MS);
 }
+
+// ---------- 加载页"重试"按钮：清理后重新启动 ----------
+ipcMain.on('dsh:retry', () => {
+  stopDsh();          // 杀旧进程（含 3080 兜底清理）
+  urlLoaded = false;  // 重置就绪标记
+  startDsh();         // 重新拉起服务
+});
 
 // ---------- 停止 DSH 子进程（幂等 + 兜底清理，确保端口释放） ----------
 function stopDsh() {
