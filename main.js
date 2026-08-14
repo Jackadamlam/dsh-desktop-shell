@@ -12,7 +12,7 @@
 // ============================================================================
 
 const { app, BrowserWindow, shell, Tray, Menu, nativeImage } = require('electron');
-const { spawn, exec } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 
 // ============================================================================
@@ -303,34 +303,70 @@ function startDsh() {
   }, STARTUP_TIMEOUT_MS);
 }
 
-// ---------- 停止 DSH 子进程（幂等） ----------
+// ---------- 停止 DSH 子进程（幂等 + 兜底清理，确保端口释放） ----------
 function stopDsh() {
   clearTimeout(startupTimer);
-  if (dshProcess && dshProcess.pid) {
-    const pid = dshProcess.pid;
-    // pnpm 会派生出 node 子进程，Windows 下必须杀整棵进程树
-    exec('taskkill /pid ' + pid + ' /T /F', () => {});
-    dshProcess = null;
-  }
+  const pids = new Set();
+
+  // 1) 自己 spawn 的进程树（cmd -> pnpm -> node -> ...）
+  if (dshProcess && dshProcess.pid) pids.add(dshProcess.pid);
+
+  // 2) 兜底：查 3080 端口上的 dsh web 进程，一并清理（防残留）
+  try {
+    const out = execSync(
+      'netstat -ano | findstr :3080 | findstr LISTENING',
+      { encoding: 'utf8', timeout: 5000 }
+    );
+    out.split(/\r?\n/).forEach((line) => {
+      const m = line.trim().match(/\s+(\d+)\s*$/);
+      if (m) {
+        const pid = parseInt(m[1], 10);
+        // 只清 dsh web（node 跑 apps/cli/src/bin.ts），避免误杀无关进程
+        try {
+          const cmd = execSync(
+            'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"ProcessId=' + pid + '\\" | Select-Object -ExpandProperty CommandLine"',
+            { encoding: 'utf8', timeout: 8000 }
+          );
+          if (/apps[\\/]cli[\\/]src[\\/]bin\.ts/.test(cmd)) pids.add(pid);
+        } catch (e) { /* 进程已消失 */ }
+      }
+    });
+  } catch (e) { /* 3080 无监听者 */ }
+
+  pids.forEach((pid) => {
+    try {
+      // 同步执行：确保进程树杀完才继续（退出前必须完成）
+      execSync('taskkill /pid ' + pid + ' /T /F', { timeout: 10000, stdio: 'ignore' });
+    } catch (e) { /* 进程可能已不存在 */ }
+  });
+  dshProcess = null;
 }
 
 // ---------- 应用生命周期 ----------
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
+// 单实例锁：防止多个实例同时拉起 dsh web 争抢 3080 端口
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  // 用户再次启动（双击/自启）时，激活已有实例的窗口
+  app.on('second-instance', () => showMainWindow());
 
-  // 由"开机自启"拉起时，直接进托盘，不打扰
-  if (app.getLoginItemSettings().wasOpenedAtLogin) {
-    mainWindow.hide();
-  }
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
 
-  startDsh();
+    // 由"开机自启"拉起时，直接进托盘，不打扰
+    if (app.getLoginItemSettings().wasOpenedAtLogin) {
+      mainWindow.hide();
+    }
 
-  app.on('activate', () => {
-    // macOS 惯例：点击 Dock 图标时若无窗口则重建
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    startDsh();
+
+    app.on('activate', () => {
+      // macOS 惯例：点击 Dock 图标时若无窗口则重建
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
   });
-});
+}
 
 app.on('window-all-closed', () => {
   // 托盘常驻：只有主动退出（appIsQuitting）才结束进程
