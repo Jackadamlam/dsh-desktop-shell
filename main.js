@@ -44,6 +44,14 @@ let trayState = 'starting'; // starting | running | error | stopped
 let trayUrl = '';           // 服务地址（running 时）
 let trayDetail = '';        // 附加说明（error 时）
 
+// ---------- 状态图标（白=启动中 / 蓝=运行中 / 黑=已停止 / 灰=异常） ----------
+const trayIcons = {
+  starting: nativeImage.createFromPath(path.join(__dirname, 'assets/tray/tray-starting.png')),
+  running: nativeImage.createFromPath(path.join(__dirname, 'assets/tray/tray-running.png')),
+  stopped: nativeImage.createFromPath(path.join(__dirname, 'assets/tray/tray-stopped.png')),
+  error: nativeImage.createFromPath(path.join(__dirname, 'assets/tray/tray-error.png')),
+};
+
 // ---------- 状态推送：加载页 + 托盘 ----------
 function setStatus(text, type = 'info') {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -66,6 +74,8 @@ function updateTray() {
     : trayState === 'error' ? 'DSH 异常：' + trayDetail
     : 'DSH 已停止';
 
+  // 状态图标变色：白=启动中 / 蓝=运行中 / 黑=已停止 / 灰=异常
+  tray.setImage(trayIcons[trayState] || trayIcons.starting);
   tray.setToolTip(statusLabel);
   tray.setContextMenu(
     Menu.buildFromTemplate([
