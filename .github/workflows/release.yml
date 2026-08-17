@@ -1,0 +1,52 @@
+name: Release
+
+# 触发方式：
+#   1. push v* 格式的 tag（推荐发布流程：npm version patch && git push --tags）
+#   2. 手动触发（Actions 页面 Run workflow，用于测试构建）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache electron-builder tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/electron-builder-cache
+          key: electron-builder-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build NSIS installer
+        env:
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
+        run: npx electron-builder --win
+
+      - name: List artifacts
+        run: |
+          Get-ChildItem -Path dist -Recurse -Filter *.exe | Select-Object FullName, Length
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/v*/*.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: false

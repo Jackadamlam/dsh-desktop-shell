@@ -69,6 +69,17 @@ npm run dist            # 打包到 dist/v<版本号>/（版本化目录，永�
 
 改版流程：`npm run bump:patch`（版本号 +1，自动 git tag）→ `npm run dist`。
 
+### 🚀 CI 自动发布（GitHub Actions）
+
+推送 `v*` 格式的 tag 会自动触发 GitHub Actions 云端构建——安装包自动打包并发布为 GitHub Release（**本机不再需要打包**）：
+
+```powershell
+npm version patch    # 升版本，自动 commit + tag（如 v0.1.8）
+git push --tags      # CI 自动构建并发布
+```
+
+Workflow 位于 `.github/workflows/release.yml`（Windows runner、electron-builder 缓存、自动生成 Release Notes），也可以在 Actions 页面手动触发。
+
 ## 🧩 推荐插件（可选，一键安装）
 
 桌面壳本身是纯壳，但配合以下 DSH Web UI 插件体验更完整（均为第三方开源插件）：

@@ -67,6 +67,17 @@ npm run dist            # builds into dist/v<version>/ (versioned dirs, never lo
 
 Release workflow: `npm run bump:patch` (bumps version + git tag) → `npm run dist`.
 
+### 🚀 CI Auto-Release (GitHub Actions)
+
+Pushing a `v*` tag triggers a cloud build on GitHub Actions — the installer is built and published as a GitHub Release automatically (no local packaging needed):
+
+```powershell
+npm version patch    # bump version, auto commit + tag (e.g. v0.1.8)
+git push --tags      # CI builds and releases on GitHub
+```
+
+The workflow lives in `.github/workflows/release.yml` (Windows runner, electron-builder cache, auto-generated release notes). You can also trigger it manually from the Actions tab.
+
 ## 🧩 Recommended Plugins (optional, one-click install)
 
 The shell itself is a pure shell; pair it with these third-party DSH Web UI plugins for a fuller experience:
