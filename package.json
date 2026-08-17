@@ -1,6 +1,6 @@
 {
   "name": "dsh-desktop-shell",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "DeepSeek Harness Web UI 的纯壳 Electron 桌面封装（不内置 Node/DSH，依赖本机已安装的 pnpm 与 DSH checkout）",
   "main": "main.js",
   "author": "you",
