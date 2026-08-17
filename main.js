@@ -348,9 +348,14 @@ function injectTitleBar(wc) {
       document.documentElement.appendChild(host);
 
       // 页面内容让位（避免被标题栏遮挡）
-      document.documentElement.style.paddingTop = '${h}px';
-      var app = document.getElementById('root');
-      if (app && app.style) app.style.height = 'calc(100vh - ${h}px)';
+      // body 方案：box-sizing 让 100vh 高度包含 padding，文档总高正好 100vh，
+      // 不会产生文档级滚动条；内容区 = 100vh - 标题栏高度，官方内部滚动不受影响。
+      document.documentElement.style.paddingTop = '';
+      document.documentElement.style.height = '100%';
+      document.body.style.margin = '0';
+      document.body.style.boxSizing = 'border-box';
+      document.body.style.height = '100vh';
+      document.body.style.paddingTop = '${h}px';
 
       // 窗口控制按钮
       root.getElementById('dsh-btn-min').addEventListener('click', function () {
