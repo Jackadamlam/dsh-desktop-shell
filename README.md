@@ -1,132 +1,130 @@
 # DSH Desktop Shell 🐋
 
-**A lightweight desktop shell for the DeepSeek Harness Web UI** (pure-shell approach: no bundled Node.js / DSH runtime — it fully relies on your local environment).
+**DeepSeek Harness Web UI 的轻量桌面封装**（纯壳方案：不内置 Node.js / DSH runtime，完全依赖本机已安装的环境）。
 
-An Electron desktop app that gives the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web UI a native desktop experience: standalone window, tray icon, auto-launch, and live service status.
+一个 Electron 桌面应用，为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web UI 提供原生桌面体验：独立窗口、任务栏托盘、开机自启、状态实时显示。
 
-> Unofficial project, not affiliated with DeepSeek AI. DeepSeek Harness is still in early development — do not run it with elevated permissions on untrusted projects.
+> 非官方项目，与 DeepSeek AI 无隶属关系。DeepSeek Harness 仍处于早期阶段，请勿在不受信任的项目中以高权限模式运行。
 
-## ✨ Features
+[English](README.en.md) | 中文
 
-| Feature | Description |
+## ✨ 功能
+
+| 功能 | 说明 |
 |---|---|
-| 🪟 Standalone window | Double-click to launch, automatically starts the local `dsh web` service — no terminal needed |
-| 🎨 Custom title bar | Dark gradient + whale logo + live status dot + custom window buttons (injected via shadow DOM, one-flag fallback to the native title bar) |
-| 🐳 Branded loading screen | Deep-blue gradient, animated whale, progress bar, startup log, retry button on failure |
-| 🔔 Tray icon | Color-coded by state (white=starting / blue=running / black=stopped / gray=error), tooltip shows the live service URL |
-| 🚀 Auto-launch on login | Toggle from the tray menu; starts silently into the tray |
-| 🧹 Zero residue on exit | Single-instance lock + synchronous process-tree kill + port fallback cleanup (port 3080 is always released on exit) |
-| 🪟 Window state memory | Remembers position and size; falls back to safe defaults when a monitor disappears |
-| ⚡ Fast startup | Launches the built DSH launcher directly (skips pnpm/tsx layers), falls back to `pnpm dsh web` automatically |
+| 🪟 独立窗口 | 双击启动，自动拉起本地 `dsh web` 服务，无需终端 |
+| 🎨 自定义标题栏 | 深色渐变 + 鲸鱼 logo + 服务状态灯 + 自绘窗口按钮（shadow DOM 注入，可一键回退系统标题栏） |
+| 🐳 品牌加载页 | 深蓝渐变背景、鲸鱼动画、进度条、启动日志、失败重试按钮 |
+| 🔔 任务栏托盘 | 状态图标变色（白=启动中 / 蓝=运行中 / 黑=已停止 / 灰=异常），tooltip 实时显示服务地址 |
+| 🚀 开机自启 | 托盘菜单勾选即生效，登录后静默进托盘 |
+| 🧹 退出零残留 | 单实例锁 + 同步杀进程树 + 端口兜底清理（关闭后 3080 必定释放） |
+| 🪟 窗口记忆 | 记住上次的位置与大小，显示器变化自动回退安全位置 |
+| ⚡ 快速启动 | 直接调用 DSH 构建产物（跳过 pnpm/tsx 层），缺失时自动回退 `pnpm dsh web` |
 
-## 📦 Installation
+## 📦 安装
 
-Download the latest installer (NSIS) from the [Releases](https://github.com/Jackadamlam/dsh-desktop-shell/releases) page, or use the portable `win-unpacked` directory.
+从 [Releases](https://github.com/Jackadamlam/dsh-desktop-shell/releases) 下载最新版安装包（NSIS），或使用免安装的 `win-unpacked` 目录。
 
-## 🛠️ Build from Source
+## 🛠️ 从源码构建
 
-### Prerequisites
+### 前置要求
 
 - Windows 10/11 x64
 - [Node.js](https://nodejs.org/) ≥ 20
 - [pnpm](https://pnpm.io/)
-- A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) checkout (where `pnpm dsh web` runs)
-- A configured DeepSeek API Key (e.g. in `$DSH_HOME/.credentials.yaml` or an environment variable)
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) checkout（`pnpm dsh web` 可手动启动）
+- DeepSeek API Key（已配置，如 `$DSH_HOME/.credentials.yaml` 或环境变量）
 
-### Configuration
+### 配置
 
-Edit the config section at the top of `main.js`:
+编辑 `main.js` 顶部的【可配置项】：
 
 ```js
-const DSH_PROJECT_DIR = 'C:/path/to/deepseek-harness'; // your DSH checkout path
-const DSH_START_COMMAND = 'pnpm dsh web';              // fallback start command
-const CUSTOM_TITLE_BAR = true;                          // custom title bar on/off
+const DSH_PROJECT_DIR = 'C:/path/to/deepseek-harness'; // 改成你的 DSH checkout 路径
+const DSH_START_COMMAND = 'pnpm dsh web';              // 回退启动命令
+const CUSTOM_TITLE_BAR = true;                          // 自定义标题栏开关
 ```
 
-> Tip: put your local path in a git-ignored `local-config.js` (see [local-config.example.js] for the shape), so `main.js` stays generic for the repo.
+> 提示：把你的本机路径放进被 git 忽略的 `local-config.js`（参考 `local-config.example.js`），`main.js` 保持通用，仓库干净。
 
-### Install Dependencies
+### 安装依赖
 
 ```powershell
 npm install
 ```
 
-### Run
+### 运行
 
 ```powershell
 npm start
 ```
 
-### Package
+### 打包
 
 ```powershell
-npm run dist            # builds into dist/v<version>/ (versioned dirs, never locked)
-.\run-latest.ps1        # launch the newest build
-.\clean-old.ps1         # prune old builds (keeps newest 2 by default)
+npm run dist            # 打包到 dist/v<版本号>/（版本化目录，永不互锁）
+.\run-latest.ps1        # 启动最新版本
+.\clean-old.ps1         # 清理旧版本产物（默认保留 2 个）
 ```
 
-Release workflow: `npm run bump:patch` (bumps version + git tag) → `npm run dist`.
+改版流程：`npm run bump:patch`（版本号 +1，自动 git tag）→ `npm run dist`。
 
-### 🚀 CI Auto-Release (GitHub Actions)
+### 🚀 CI 自动发布（GitHub Actions）
 
-Pushing a `v*` tag triggers a cloud build on GitHub Actions — the installer is built and published as a GitHub Release automatically (no local packaging needed):
+推送 `v*` 格式的 tag 会自动触发 GitHub Actions 云端构建——安装包自动打包并发布为 GitHub Release（**本机不再需要打包**）：
 
 ```powershell
-npm version patch    # bump version, auto commit + tag (e.g. v0.1.8)
-git push --tags      # CI builds and releases on GitHub
+npm version patch    # 升版本，自动 commit + tag（如 v0.1.8）
+git push --tags      # CI 自动构建并发布
 ```
 
-The workflow lives in `.github/workflows/release.yml` (Windows runner, electron-builder cache, auto-generated release notes). You can also trigger it manually from the Actions tab.
+Workflow 位于 `.github/workflows/release.yml`（Windows runner、electron-builder 缓存、自动生成 Release Notes），也可以在 Actions 页面手动触发。
 
-## 🧩 Recommended Plugins (optional, one-click install)
+## 🧩 推荐插件（可选，一键安装）
 
-The shell itself is a pure shell; pair it with these third-party DSH Web UI plugins for a fuller experience:
+桌面壳本身是纯壳，但配合以下 DSH Web UI 插件体验更完整（均为第三方开源插件）：
 
-| Plugin | Purpose | Install |
+| 插件 | 用途 | 安装 |
 |---|---|---|
-| [@omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui) | Interactive `dsh-ui` components (charts/forms/panels) | `dsh plugin --profile web add github:omdsh-dev/dsh-genui` |
-| [dsh-at-file](https://github.com/omdsh-dev/dsh-at-file) | `@` path picker in the input (10k file index) | `dsh plugin --profile web add github:omdsh-dev/dsh-at-file` |
-| [dsh-better-sidebar](https://github.com/omdsh-dev/dsh-better-sidebar) | Right-side workspace panel | `dsh plugin --profile web add dsh-better-sidebar` |
+| [@omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui) | `dsh-ui` 可交互 UI 组件（图表/表单/面板） | `dsh plugin --profile web add github:omdsh-dev/dsh-genui` |
+| [dsh-at-file](https://github.com/omdsh-dev/dsh-at-file) | 输入框 `@` 路径选择器（支持 1 万文件索引） | `dsh plugin --profile web add github:omdsh-dev/dsh-at-file` |
+| [dsh-better-sidebar](https://github.com/omdsh-dev/dsh-better-sidebar) | 右侧栏工作台 | `dsh plugin --profile web add dsh-better-sidebar` |
 
-**Install all at once** (applies the config patch automatically):
+**一键安装全部**（自动补丁配置）：
 
 ```powershell
 .\setup-plugins.ps1
 ```
 
-> Restart the shell after installing. Plugins belong to their respective authors.
+> 装完需重启桌面壳生效。插件属于各自作者，版权归其仓库所有。
 
-## ⌨️ Usage Tips
+## ⌨️ 使用提示
 
-- Clicking **✕** on the window = minimize to tray (the service keeps running)
-- **Real exit** = right-click the tray whale → Exit
-- Tray menu: Show/Hide window, **Restart service**, auto-launch on login, Exit
-- The loading screen has a **Retry** button on startup failure
+- 点窗口 **✕** = 最小化到托盘（服务继续跑）
+- **真正退出** = 右键托盘鲸鱼 → 退出
+- 托盘菜单：显示/隐藏窗口、**重启服务**、开机自启、退出
+- 启动失败时加载页有**重试**按钮
 
-## 🏗️ Project Structure
+## 🏗️ 项目结构
 
 ```
 dsh-desktop-shell/
-├── main.js          # Main process (window/tray/child process/title-bar injection)
-├── preload.js       # contextBridge secure bridge (status/retry/window actions)
-├── icon.ico         # App icon (derived from official favicon.svg)
+├── main.js          # 主进程（窗口/托盘/子进程管理/标题栏注入）
+├── preload.js       # contextBridge 安全桥（状态/重试/窗口控制）
+├── icon.ico         # 应用图标（官方 favicon.svg 派生）
 ├── assets/
-│   ├── tray/        # Four state-colored tray icons
-│   └── whale.svg    # Whale logo for loading screen & title bar
-├── run-latest.ps1   # Launch the newest build
-├── clean-old.ps1    # Prune old builds
-└── setup-plugins.ps1# One-click plugin installation
+│   ├── tray/        # 四色状态托盘图标
+│   └── whale.svg    # 加载页/标题栏鲸鱼 logo
+├── run-latest.ps1   # 启动最新版本
+├── clean-old.ps1    # 清理旧产物
+└── setup-plugins.ps1# 一键安装插件
 ```
 
-## 🤝 Credits & Copyright
+## 🤝 致谢与版权
 
-- Icon and whale artwork derived from the official [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) favicon (MIT License)
-- The Electron shell logic is independently implemented
+- 图标与鲸鱼素材派生自 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（MIT License）的官方 favicon
+- Electron 桌面壳逻辑完全独立实现
 
 ## 📄 License
 
 [MIT](LICENSE) © 2026 Jackadamlam
-
----
-
-[中文文档](README.zh.md)
