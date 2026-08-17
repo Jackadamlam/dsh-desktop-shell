@@ -612,6 +612,40 @@ function stopDsh() {
   dshProcess = null;
 }
 
+// ---------- Launcher 模式（固定入口 exe） ----------
+// 快捷方式指向 <项目根>/app/DSH Desktop Shell.exe 并附加 --launcher 参数：
+// 每次双击自动扫描 dist 下最新版本并启动它，然后本进程退出。
+// 这样快捷方式永远固定，跑的一直是最新构建。
+const LAUNCHER_FLAG = '--launcher';
+if (process.argv.includes(LAUNCHER_FLAG)) {
+  try {
+    // 固定结构：入口 exe 位于 <项目根>/app/，产物位于 <项目根>/dist/
+    const entryDir = path.dirname(process.execPath);
+    const distRoot = path.join(entryDir, '..', 'dist');
+    if (fs.existsSync(distRoot)) {
+      const versions = fs
+        .readdirSync(distRoot)
+        .filter((n) => /^v?\d+\.\d+\.\d+$/.test(n))
+        .sort((a, b) => {
+          const va = a.replace(/^v/, '').split('.').map(Number);
+          const vb = b.replace(/^v/, '').split('.').map(Number);
+          return vb[0] - va[0] || vb[1] - va[1] || vb[2] - va[2];
+        });
+      for (const v of versions) {
+        const exe = path.join(distRoot, v, 'win-unpacked', 'DSH Desktop Shell.exe');
+        if (fs.existsSync(exe)) {
+          const { spawn } = require('child_process');
+          spawn(exe, [], { detached: true, stdio: 'ignore' }).unref();
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    // launcher 失败时静默退出；用户可改用 run-latest.ps1
+  }
+  app.exit(0);
+}
+
 // ---------- 应用生命周期 ----------
 // 单实例锁：防止多个实例同时拉起 dsh web 争抢 3080 端口
 if (!app.requestSingleInstanceLock()) {
