@@ -95,8 +95,17 @@ const trayIcons = {
   error: nativeImage.createFromPath(path.join(__dirname, 'assets/tray/tray-error.png')),
 };
 
-// ---------- 状态推送：加载页 + 托盘 ----------
+// ---------- 错误日志落盘（界面断线时也能事后定位问题） ----------
+const LOG_FILE = path.join(app.getPath('userData'), 'dsh-shell.log');
+function logToFile(text) {
+  try {
+    fs.appendFileSync(LOG_FILE, '[' + new Date().toISOString() + '] ' + text + '\n');
+  } catch (e) { /* 日志失败不影响主流程 */ }
+}
+
+// ---------- 状态推送：加载页 + 托盘 + 日志 ----------
 function setStatus(text, type = 'info') {
+  logToFile((type === 'error' ? '[ERROR] ' : '') + text.replace(/\n/g, ' | '));
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('dsh:status', { text, type });
   }
@@ -522,6 +531,7 @@ function startDsh() {
   dshProcess.stdout.on('data', (data) => {
     const text = data.toString();
     process.stdout.write(text);
+    logToFile('[dsh stdout] ' + text.trim().split('\n').join(' | '));
 
     const match = text.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+/);
     if (match && !urlLoaded) {
@@ -540,6 +550,7 @@ function startDsh() {
   dshProcess.stderr.on('data', (data) => {
     const text = data.toString();
     process.stderr.write(text);
+    logToFile('[dsh stderr] ' + text.trim().split('\n').join(' | '));
 
     if (/EADDRINUSE|address already in use|port.*(?:in use|taken)/i.test(text)) {
       const msg =
