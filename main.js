@@ -81,6 +81,7 @@ let urlLoaded = false;    // 是否已加载到服务 URL（只加载一次）
 let startupTimer = null;  // 启动超时定时器
 let appIsQuitting = false; // 是否正在真正退出（托盘"退出"触发）
 let windowSaveTimer = null; // 窗口状态防抖保存定时器
+let portBusyNotified = false; // 是否已提示过端口占用（避免 exit 事件覆盖）
 
 // ---------- 托盘状态机 ----------
 let trayState = 'starting'; // starting | running | error | stopped
@@ -480,6 +481,8 @@ function createTray() {
 
 // ---------- 启动 DSH 子进程 ----------
 function startDsh() {
+  portBusyNotified = false; // 每次启动重置端口占用提示标志
+
   // 配置检查：DSH 路径不存在时给出明确指引（避免 spawn ENOENT 之类难懂报错）
   if (!fs.existsSync(DSH_PROJECT_DIR)) {
     const msg =
@@ -553,6 +556,7 @@ function startDsh() {
     logToFile('[dsh stderr] ' + text.trim().split('\n').join(' | '));
 
     if (/EADDRINUSE|address already in use|port.*(?:in use|taken)/i.test(text)) {
+      portBusyNotified = true;
       const msg =
         '端口被占用：3080 可能已被其他 DSH 实例（如现有 Web UI）占用。\n' +
         '请先关闭其他实例后重试。\n\n' + text.slice(0, 300);
@@ -568,6 +572,16 @@ function startDsh() {
 
   dshProcess.on('exit', (code, signal) => {
     if (!urlLoaded) {
+      // 若已提示过具体错误（如端口占用），保留原提示，不再覆盖成通用信息
+      if (portBusyNotified) {
+        setStatus(
+          '服务未能启动：3080 端口被占用。\n' +
+          '请先关闭其他 DSH 实例（托盘鲸鱼 → 退出），再点击下方"重试"。',
+          'error'
+        );
+        setTray('error', { detail: '端口被占用' });
+        return;
+      }
       const msg =
         'DSH 进程已退出（code=' + code + ' signal=' + signal + '）\n' +
         '请检查：\n' +
