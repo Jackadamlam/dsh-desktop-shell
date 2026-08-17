@@ -1,115 +1,96 @@
-# DSH Desktop Shell
+# DSH Desktop Shell 🐋
 
-DeepSeek Harness Web UI 的**纯壳** Electron 桌面封装。
+**DeepSeek Harness Web UI 的轻量桌面封装**（纯壳方案：不内置 Node.js / DSH runtime，完全依赖本机已安装的环境）。
 
-**方案三：不内置 Node.js 和 DSH runtime** —— 完全依赖本机已安装的环境（pnpm + DeepSeek Harness checkout）。应用只负责：
+一个 Electron 桌面应用，为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web UI 提供原生桌面体验：独立窗口、任务栏托盘、开机自启、状态实时显示。
 
-1. 打开一个 Electron 窗口，先显示"正在启动 DeepSeek Harness..."加载页；
-2. 在主进程中用 `child_process.spawn` 在 DSH 项目目录执行 `pnpm dsh web`（`shell: true`）；
-3. 捕获子进程 stdout，出现 `http://127.0.0.1:<port>` 时自动加载该地址；
-4. 窗口关闭时用 `taskkill /T /F` 杀掉整棵进程树，保证 pnpm/node 子进程不残留。
+> 非官方项目，与 DeepSeek AI 无隶属关系。DeepSeek Harness 仍处于早期阶段，请勿在不受信任的项目中以高权限模式运行。
 
-## 目录结构
+## ✨ 功能
 
-```
-dsh-desktop-shell/
-├── package.json    # 依赖与 electron-builder 打包配置
-├── main.js         # Electron 主进程（含加载页、子进程管理）
-├── preload.js      # 预加载脚本（把启动状态安全暴露给加载页）
-├── icon.ico        # 应用图标（占位，可自行替换）
-└── README.md       # 本文件
-```
+| 功能 | 说明 |
+|---|---|
+| 🪟 独立窗口 | 双击启动，自动拉起本地 `dsh web` 服务，无需终端 |
+| 🎨 自定义标题栏 | 深色渐变 + 鲸鱼 logo + 服务状态灯 + 自绘窗口按钮（shadow DOM 注入，可一键回退系统标题栏） |
+| 🐳 品牌加载页 | 深蓝渐变背景、鲸鱼动画、进度条、启动日志、失败重试按钮 |
+| 🔔 任务栏托盘 | 状态图标变色（白=启动中 / 蓝=运行中 / 黑=已停止 / 灰=异常），tooltip 实时显示服务地址 |
+| 🚀 开机自启 | 托盘菜单勾选即生效，登录后静默进托盘 |
+| 🧹 退出零残留 | 单实例锁 + 同步杀进程树 + 端口兜底清理（关闭后 3080 必定释放） |
+| 🪟 窗口记忆 | 记住上次的位置与大小，显示器变化自动回退安全位置 |
+| ⚡ 快速启动 | 直接调用 DSH 构建产物（跳过 pnpm/tsx 层），缺失时自动回退 `pnpm dsh web` |
 
-## 前置要求（本机已满足）
+## 📦 安装
 
-| 要求 | 说明 | 验证 |
-|---|---|---|
-| Node.js ≥ 20 | 运行 npm/electron-builder | `node --version` |
-| pnpm | 启动 DSH 用 | `pnpm --version` |
-| DeepSeek Harness checkout | `pnpm dsh web` 可手动启动 | 在项目目录执行 `pnpm dsh web` |
-| API Key | 已配置（如 `$DSH_HOME\.credentials.yaml` 或环境变量） | — |
+从 [Releases](https://github.com/Jackalam/dsh-desktop-shell/releases) 下载最新版安装包（NSIS），或使用免安装的 `win-unpacked` 目录。
 
-## 修改配置
+## 🛠️ 从源码构建
+
+### 前置要求
+
+- Windows 10/11 x64
+- [Node.js](https://nodejs.org/) ≥ 20
+- [pnpm](https://pnpm.io/)
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) checkout（`pnpm dsh web` 可手动启动）
+- DeepSeek API Key（已配置，如 `$DSH_HOME/.credentials.yaml` 或环境变量）
+
+### 配置
 
 编辑 `main.js` 顶部的【可配置项】：
 
 ```js
-const DSH_PROJECT_DIR = 'D:/DeepSeekHarness/deepseek-harness'; // DSH 项目路径（改这里）
-const DSH_START_COMMAND = 'pnpm dsh web';                       // 启动命令
-const STARTUP_TIMEOUT_MS = 120000;                              // 启动超时（毫秒）
+const DSH_PROJECT_DIR = 'C:/path/to/deepseek-harness'; // 改成你的 DSH checkout 路径
+const DSH_START_COMMAND = 'pnpm dsh web';              // 回退启动命令
+const CUSTOM_TITLE_BAR = true;                          // 自定义标题栏开关
 ```
 
-## 安装依赖
+### 安装依赖
 
 ```powershell
-cd D:\DeepSeekHarness\DSH-GUI\dsh-desktop-shell
 npm install
 ```
 
-> 仅安装 `electron` 与 `electron-builder` 两个开发依赖。electron 二进制约 120MB，首次下载可能较慢。
-
-## 测试运行
+### 运行
 
 ```powershell
 npm start
 ```
 
-预期行为：
-
-1. 弹出桌面窗口，显示"正在启动 DeepSeek Harness..."加载页（带转圈动画）；
-2. 主进程启动 `pnpm dsh web`，加载页显示命令与目录信息；
-3. 数秒后捕获到 `http://127.0.0.1:3080`，窗口自动切换到完整界面；
-4. 关闭窗口后，可用任务管理器确认没有残留的 node/pnpm 进程。
-
-> ⚠️ 若 3080 端口已被占用（例如另一个 DSH Web UI 正在运行），加载页会提示"端口被占用"，请先关闭其他实例再运行。
-
-## 打包（版本化产物，彻底解决互锁）
-
-产物按版本号分目录存放：`dist/v0.1.0/`、`dist/v0.1.1/`... —— **打包永不触碰运行中的文件**，应用开着也能随时打包，不需要关闭、不需要临时目录。
+### 打包
 
 ```powershell
-npm run dist          # 打包当前版本到 dist/v<版本号>/
+npm run dist            # 打包到 dist/v<版本号>/（版本化目录，永不互锁）
+.\run-latest.ps1        # 启动最新版本
+.\clean-old.ps1         # 清理旧版本产物（默认保留 2 个）
 ```
 
-**改版流程（每次魔改后推荐）：**
+改版流程：`npm run bump:patch`（版本号 +1，自动 git tag）→ `npm run dist`。
 
-```powershell
-npm run bump:patch    # 版本号 +0.0.1（自动 git commit + tag）
-npm run dist          # 打包到新版本目录
+## ⌨️ 使用提示
+
+- 点窗口 **✕** = 最小化到托盘（服务继续跑）
+- **真正退出** = 右键托盘鲸鱼 → 退出
+- 托盘菜单：显示/隐藏窗口、**重启服务**、开机自启、退出
+- 启动失败时加载页有**重试**按钮
+
+## 🏗️ 项目结构
+
+```
+dsh-desktop-shell/
+├── main.js          # 主进程（窗口/托盘/子进程管理/标题栏注入）
+├── preload.js       # contextBridge 安全桥（状态/重试/窗口控制）
+├── icon.ico         # 应用图标（官方 favicon.svg 派生）
+├── assets/
+│   ├── tray/        # 四色状态托盘图标
+│   └── whale.svg    # 加载页/标题栏鲸鱼 logo
+├── run-latest.ps1   # 启动最新版本
+└── clean-old.ps1    # 清理旧产物
 ```
 
-**启动最新版本：**
+## 🤝 致谢与版权
 
-```powershell
-.\run-latest.ps1      # 自动找到 dist 下最新版本并启动
-```
+- 图标与鲸鱼素材派生自 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（MIT License）的官方 favicon
+- Electron 桌面壳逻辑完全独立实现
 
-或者直接运行 `dist\v<最新>\win-unpacked\DSH Desktop Shell.exe`。
+## 📄 License
 
-> 旧版本目录可保留（随时回退），磁盘紧张时手动删除即可（git 历史里的源码不受影响）。
-
-产物位于 `dist\v<版本号>\` 目录：
-
-- `DSH Desktop Shell Setup <版本号>.exe` —— NSIS 安装程序（双击安装，可选安装目录、创建桌面快捷方式）
-- `win-unpacked/` —— 免安装的解压即用目录
-
-仅想生成免安装目录（更快，用于自测）：
-
-```powershell
-npm run dist:dir
-```
-
-## 常见问题
-
-| 问题 | 解决 |
-|---|---|
-| 窗口一直停在加载页 | 在终端手动执行 `pnpm dsh web` 排查；确认 `DSH_PROJECT_DIR` 路径正确 |
-| 提示"端口被占用" | 关闭其他 DSH 实例（含现有 Web UI）后重试 |
-| Windows SmartScreen 提示"未知发布者" | 未签名应用的正常提示，点"更多信息 → 仍要运行"；正式分发需代码签名 |
-| 打包时报 icon 错误 | 确认 `icon.ico` 存在且为有效 ICO（可替换为自己的 256×256 图标） |
-
-## 安全说明
-
-- 壳应用**不注入、不修改** Harness 界面，只做进程生命周期管理；
-- `contextIsolation: true`、`nodeIntegration: false`，页面内无法访问 Node API；
-- 页面外链统一交给系统浏览器打开。
+[MIT](LICENSE) © 2026 Jackalam

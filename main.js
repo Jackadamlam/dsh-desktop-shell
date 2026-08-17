@@ -21,7 +21,15 @@ const path = require('path');
 // 【可配置项】按需修改
 // ============================================================================
 // DSH 项目 checkout 的绝对路径（pnpm dsh web 在这个目录下执行）
-const DSH_PROJECT_DIR = 'D:/DeepSeekHarness/deepseek-harness';
+// 优先级：local-config.js（本机配置，git 忽略）> 环境变量 DSH_PROJECT_DIR > 默认占位
+let localConfig = {};
+try {
+  localConfig = require('./local-config.js');
+} catch (e) { /* 无本地配置，使用环境变量或默认值 */ }
+const DSH_PROJECT_DIR =
+  localConfig.DSH_PROJECT_DIR ||
+  process.env.DSH_PROJECT_DIR ||
+  'C:/path/to/deepseek-harness';
 
 // 启动命令（配合 shell: true，pnpm 会从 PATH 解析）
 const DSH_START_COMMAND = 'pnpm dsh web';

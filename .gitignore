@@ -7,6 +7,9 @@ dist-*/
 release/
 out/
 
+# ---------- 本机配置（不提交） ----------
+local-config.js
+
 # ---------- 日志与调试文件 ----------
 *.log
 builder-debug.yml
