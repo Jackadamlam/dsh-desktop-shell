@@ -36,7 +36,9 @@ jobs:
       - name: Build NSIS installer
         env:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
-        run: npx electron-builder --win
+        # --publish never: electron-builder must NOT publish itself (no GH token in build);
+        # publishing is done by the dedicated release step below.
+        run: npx electron-builder --win --publish never
 
       - name: List artifacts
         run: |
