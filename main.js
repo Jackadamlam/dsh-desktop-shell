@@ -439,20 +439,36 @@ function createTray() {
 
 // ---------- 启动 DSH 子进程 ----------
 function startDsh() {
+  // 快速路径：DSH checkout 的构建产物启动器（跳过 pnpm 层与 tsx 转译，启动更快）
+  // 构建产物缺失时自动回退到 pnpm dsh web
+  const builtLauncher = path.join(DSH_PROJECT_DIR, 'apps/cli/lib/bin.js');
+  const useFastLaunch = fs.existsSync(builtLauncher);
+  const actualCommand = useFastLaunch
+    ? 'node apps/cli/lib/bin.js web'
+    : DSH_START_COMMAND;
+
   setStatus(
     '正在启动 DeepSeek Harness...\n\n' +
-      '命令: ' + DSH_START_COMMAND + '\n' +
+      '命令: ' + actualCommand + '\n' +
       '目录: ' + DSH_PROJECT_DIR
   );
   setTray('starting', { detail: '正在启动…' });
 
   try {
-    // shell: true 确保 pnpm（.cmd / .ps1 shim）能从 PATH 中找到并执行
-    dshProcess = spawn(DSH_START_COMMAND, [], {
-      cwd: DSH_PROJECT_DIR,
-      shell: true,
-      windowsHide: true,
-    });
+    if (useFastLaunch) {
+      // 直接执行构建产物（node 在 PATH），无需 shell 包装
+      dshProcess = spawn('node', ['apps/cli/lib/bin.js', 'web'], {
+        cwd: DSH_PROJECT_DIR,
+        windowsHide: true,
+      });
+    } else {
+      // 回退：shell: true 确保 pnpm（.cmd / .ps1 shim）能从 PATH 中找到并执行
+      dshProcess = spawn(DSH_START_COMMAND, [], {
+        cwd: DSH_PROJECT_DIR,
+        shell: true,
+        windowsHide: true,
+      });
+    }
   } catch (err) {
     setStatus('子进程启动失败: ' + err.message, 'error');
     setTray('error', { detail: '启动失败' });
