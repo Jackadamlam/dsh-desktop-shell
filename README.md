@@ -21,7 +21,7 @@
 
 ## 📦 安装
 
-从 [Releases](https://github.com/Jackalam/dsh-desktop-shell/releases) 下载最新版安装包（NSIS），或使用免安装的 `win-unpacked` 目录。
+从 [Releases](https://github.com/Jackadamlam/dsh-desktop-shell/releases) 下载最新版安装包（NSIS），或使用免安装的 `win-unpacked` 目录。
 
 ## 🛠️ 从源码构建
 
@@ -65,6 +65,24 @@ npm run dist            # 打包到 dist/v<版本号>/（版本化目录，永�
 
 改版流程：`npm run bump:patch`（版本号 +1，自动 git tag）→ `npm run dist`。
 
+## 🧩 推荐插件（可选，一键安装）
+
+桌面壳本身是纯壳，但配合以下 DSH Web UI 插件体验更完整（均为第三方开源插件）：
+
+| 插件 | 用途 | 安装 |
+|---|---|---|
+| [@omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui) | `dsh-ui` 可交互 UI 组件（图表/表单/面板） | `dsh plugin --profile web add github:omdsh-dev/dsh-genui` |
+| [dsh-at-file](https://github.com/omdsh-dev/dsh-at-file) | 输入框 `@` 路径选择器（支持 1 万文件索引） | `dsh plugin --profile web add github:omdsh-dev/dsh-at-file` |
+| [dsh-better-sidebar](https://github.com/omdsh-dev/dsh-better-sidebar) | 右侧栏工作台 | `dsh plugin --profile web add dsh-better-sidebar` |
+
+**一键安装全部**（自动补丁配置）：
+
+```powershell
+.\setup-plugins.ps1
+```
+
+> 装完需重启桌面壳生效。插件属于各自作者，版权归其仓库所有。
+
 ## ⌨️ 使用提示
 
 - 点窗口 **✕** = 最小化到托盘（服务继续跑）
@@ -93,4 +111,4 @@ dsh-desktop-shell/
 
 ## 📄 License
 
-[MIT](LICENSE) © 2026 Jackalam
+[MIT](LICENSE) © 2026 Jackadamlam
