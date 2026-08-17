@@ -22,10 +22,29 @@ const path = require('path');
 // ============================================================================
 // DSH 项目 checkout 的绝对路径（pnpm dsh web 在这个目录下执行）
 // 优先级：local-config.js（本机配置，git 忽略）> 环境变量 DSH_PROJECT_DIR > 默认占位
-let localConfig = {};
-try {
-  localConfig = require('./local-config.js');
-} catch (e) { /* 无本地配置，使用环境变量或默认值 */ }
+function loadLocalConfig() {
+  if (app.isPackaged) {
+    // 打包后 local-config.js 不在 asar 里：从可执行文件位置向上逐级探测项目根目录
+    // （app\ 固定入口 / dist\vX.Y.Z\win-unpacked 都能找到项目根）
+    let dir = path.dirname(process.execPath);
+    for (let i = 0; i < 5; i++) {
+      const f = path.join(dir, 'local-config.js');
+      try {
+        if (fs.existsSync(f)) return require(f);
+      } catch (e) { /* 跳过损坏文件 */ }
+      dir = path.dirname(dir);
+    }
+    return {};
+  }
+  // 开发模式：local-config.js 与 main.js 同目录
+  try {
+    return require('./local-config.js');
+  } catch (e) {
+    return {};
+  }
+}
+
+let localConfig = loadLocalConfig();
 const DSH_PROJECT_DIR =
   localConfig.DSH_PROJECT_DIR ||
   process.env.DSH_PROJECT_DIR ||
@@ -452,6 +471,17 @@ function createTray() {
 
 // ---------- 启动 DSH 子进程 ----------
 function startDsh() {
+  // 配置检查：DSH 路径不存在时给出明确指引（避免 spawn ENOENT 之类难懂报错）
+  if (!fs.existsSync(DSH_PROJECT_DIR)) {
+    const msg =
+      '未找到 DSH 项目目录:\n' + DSH_PROJECT_DIR + '\n\n' +
+      '请创建 local-config.js（参考 local-config.example.js），\n' +
+      '或在环境变量中设置 DSH_PROJECT_DIR 指向你的 DeepSeek Harness checkout。';
+    setStatus(msg, 'error');
+    setTray('error', { detail: 'DSH 路径未配置' });
+    return;
+  }
+
   // 快速路径：DSH checkout 的构建产物启动器（跳过 pnpm 层与 tsx 转译，启动更快）
   // 构建产物缺失时自动回退到 pnpm dsh web
   const builtLauncher = path.join(DSH_PROJECT_DIR, 'apps/cli/lib/bin.js');
