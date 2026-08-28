@@ -20,6 +20,7 @@
 | 🧹 退出零残留 | 单实例锁 + 同步杀进程树 + 端口兜底清理（关闭后 3080 必定释放） |
 | 🪟 窗口记忆 | 记住上次的位置与大小，显示器变化自动回退安全位置 |
 | ⚡ 快速启动 | 直接调用 DSH 构建产物（跳过 pnpm/tsx 层），缺失时自动回退 `pnpm dsh web` |
+| 🚫 不弹浏览器 | 以 `--no-open` 启动服务，界面只出现在 Electron 窗口，不再额外弹出系统默认浏览器 |
 
 ## 📦 安装
 
@@ -41,7 +42,7 @@
 
 ```js
 const DSH_PROJECT_DIR = 'C:/path/to/deepseek-harness'; // 改成你的 DSH checkout 路径
-const DSH_START_COMMAND = 'pnpm dsh web';              // 回退启动命令
+const DSH_START_COMMAND = 'pnpm dsh web';              // 回退启动命令（自动追加 --no-open，不弹默认浏览器）
 const CUSTOM_TITLE_BAR = true;                          // 自定义标题栏开关
 ```
 

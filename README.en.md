@@ -20,6 +20,7 @@ An Electron desktop app that gives the [DeepSeek Harness](https://github.com/dee
 | 🧹 Zero residue on exit | Single-instance lock + synchronous process-tree kill + port fallback cleanup (port 3080 is always released on exit) |
 | 🪟 Window state memory | Remembers position and size; falls back to safe defaults when a monitor disappears |
 | ⚡ Fast startup | Launches the built DSH launcher directly (skips pnpm/tsx layers), falls back to `pnpm dsh web` automatically |
+| 🚫 No browser popup | Starts the service with `--no-open` — the UI appears only in the Electron window, never in a system browser tab |
 
 ## 📦 Installation
 
@@ -41,7 +42,7 @@ Edit the config section at the top of `main.js`:
 
 ```js
 const DSH_PROJECT_DIR = 'C:/path/to/deepseek-harness'; // your DSH checkout path
-const DSH_START_COMMAND = 'pnpm dsh web';              // fallback start command
+const DSH_START_COMMAND = 'pnpm dsh web';              // fallback start command (--no-open is appended automatically)
 const CUSTOM_TITLE_BAR = true;                          // custom title bar on/off
 ```
 
