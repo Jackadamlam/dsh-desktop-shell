@@ -499,8 +499,8 @@ function startDsh() {
   const builtLauncher = path.join(DSH_PROJECT_DIR, 'apps/cli/lib/bin.js');
   const useFastLaunch = fs.existsSync(builtLauncher);
   const actualCommand = useFastLaunch
-    ? 'node apps/cli/lib/bin.js web'
-    : DSH_START_COMMAND;
+    ? 'node apps/cli/lib/bin.js web --no-open'
+    : DSH_START_COMMAND + ' --no-open';
 
   setStatus(
     '正在启动 DeepSeek Harness...\n\n' +
@@ -512,13 +512,13 @@ function startDsh() {
   try {
     if (useFastLaunch) {
       // 直接执行构建产物（node 在 PATH），无需 shell 包装
-      dshProcess = spawn('node', ['apps/cli/lib/bin.js', 'web'], {
+      dshProcess = spawn('node', ['apps/cli/lib/bin.js', 'web', '--no-open'], {
         cwd: DSH_PROJECT_DIR,
         windowsHide: true,
       });
     } else {
       // 回退：shell: true 确保 pnpm（.cmd / .ps1 shim）能从 PATH 中找到并执行
-      dshProcess = spawn(DSH_START_COMMAND, [], {
+      dshProcess = spawn(DSH_START_COMMAND + ' --no-open', [], {
         cwd: DSH_PROJECT_DIR,
         shell: true,
         windowsHide: true,
