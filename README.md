@@ -87,9 +87,8 @@ Workflow 位于 `.github/workflows/release.yml`（Windows runner、electron-buil
 
 | 插件 | 用途 | 安装 |
 |---|---|---|
-| [@omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui) | `dsh-ui` 可交互 UI 组件（图表/表单/面板） | `dsh plugin --profile web add github:omdsh-dev/dsh-genui` |
-| [dsh-at-file](https://github.com/omdsh-dev/dsh-at-file) | 输入框 `@` 路径选择器（支持 1 万文件索引） | `dsh plugin --profile web add github:omdsh-dev/dsh-at-file` |
-| [dsh-better-sidebar](https://github.com/omdsh-dev/dsh-better-sidebar) | 右侧栏工作台 | `dsh plugin --profile web add dsh-better-sidebar` |
+| [dsh-better-sidebar](https://github.com/Jackadamlam/DSH-better-sidebar) | 右侧栏工作台 | `dsh plugin --profile web add github:Jackadamlam/DSH-better-sidebar` |
+| [dsh-usage-stats](https://github.com/Jackadamlam/dsh-usage-stats) | 对话输入框下方常驻用量状态条（今日/累计/缓存/余额，逐供应商展示） | `dsh plugin --profile web add github:Jackadamlam/dsh-usage-stats` |
 
 **一键安装全部**（自动补丁配置）：
 

@@ -87,9 +87,8 @@ The shell itself is a pure shell; pair it with these third-party DSH Web UI plug
 
 | Plugin | Purpose | Install |
 |---|---|---|
-| [@omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui) | Interactive `dsh-ui` components (charts/forms/panels) | `dsh plugin --profile web add github:omdsh-dev/dsh-genui` |
-| [dsh-at-file](https://github.com/omdsh-dev/dsh-at-file) | `@` path picker in the input (10k file index) | `dsh plugin --profile web add github:omdsh-dev/dsh-at-file` |
-| [dsh-better-sidebar](https://github.com/omdsh-dev/dsh-better-sidebar) | Right-side workspace panel | `dsh plugin --profile web add dsh-better-sidebar` |
+| [dsh-better-sidebar](https://github.com/Jackadamlam/DSH-better-sidebar) | Right-side workspace panel | `dsh plugin --profile web add github:Jackadamlam/DSH-better-sidebar` |
+| [dsh-usage-stats](https://github.com/Jackadamlam/dsh-usage-stats) | Persistent usage status bar under the composer (today/total/cache/balance, per-provider rows) | `dsh plugin --profile web add github:Jackadamlam/dsh-usage-stats` |
 
 **Install all at once** (applies the config patch automatically):
 

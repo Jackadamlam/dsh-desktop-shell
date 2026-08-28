@@ -1,9 +1,8 @@
 # ============================================================================
-# setup-plugins.ps1 - Install recommended DSH plugins into the web profile.
-# These are third-party open-source plugins that enhance the DSH Web UI:
-#   - @omdsh-dev/dsh-genui      interactive dsh-ui components
-#   - dsh-at-file               @ path picker (widened index cap)
-#   - dsh-better-sidebar        right-side workspace panel
+# setup-plugins.ps1 - Install the DSH plugins currently in use into the web profile.
+# These are the plugins this desktop shell is paired with:
+#   - dsh-better-sidebar          right-side workspace panel
+#   - dsh-usage-stats             persistent usage status bar (per-provider)
 # Usage: .\setup-plugins.ps1
 # Restart `dsh web` after installing for the plugins to take effect.
 # ============================================================================
@@ -23,9 +22,8 @@ Write-Host "dsh version: $(dsh --version)" -ForegroundColor Gray
 
 # 2. Install plugins (idempotent - re-running is safe)
 $plugins = @(
-    'github:omdsh-dev/dsh-genui',
-    'github:omdsh-dev/dsh-at-file',
-    'dsh-better-sidebar'
+    'github:Jackadamlam/DSH-better-sidebar',
+    'github:Jackadamlam/dsh-usage-stats'
 )
 
 foreach ($p in $plugins) {
@@ -39,23 +37,5 @@ foreach ($p in $plugins) {
     Write-Host "OK: $p" -ForegroundColor Green
 }
 
-# 3. Optional: widen dsh-at-file index cap in the profile patch layer
-$patchFile = Join-Path $env:DSH_HOME 'profiles\web\cordis.patch.yml'
-if ($env:DSH_HOME -and (Test-Path $patchFile)) {
-    $content = Get-Content $patchFile -Raw -Encoding UTF8
-    if ($content -notmatch 'dsh-at-file') {
-        $addition = @'
-
-# dsh-at-file: widen the workspace @-picker index cap (default 5000).
-- id: dsh-at-file
-  config:
-    maxIndexedFiles: 10000
-'@
-        Add-Content -Path $patchFile -Value $addition -Encoding UTF8
-        Write-Host "`nPatched $patchFile (maxIndexedFiles: 10000)" -ForegroundColor Green
-    } else {
-        Write-Host "`n$patchFile already configured for dsh-at-file." -ForegroundColor Gray
-    }
-}
-
+# 3. Done message
 Write-Host "`n=== Done. Restart 'dsh web' (or the desktop shell) to load the plugins. ===" -ForegroundColor Cyan
